@@ -36,7 +36,10 @@ def test_invalid(raw, code):
 
 
 def test_strip_before_length_check():
-    _, err = validate_nickname(" a ")
-    assert err is None
-    _, err = validate_nickname("a")
+    nick, err = validate_nickname(" a ")
+    assert nick is None
     assert err == "NICKNAME_TOO_SHORT"
+
+    nick, err = validate_nickname(" ab ")
+    assert nick == "ab"
+    assert err is None

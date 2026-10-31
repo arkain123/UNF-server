@@ -59,23 +59,46 @@ async def test_ready_in_non_waiting_state(room):
     assert e.value.code == "ROOM_ALREADY_STARTED"
 
 
-async def test_is_all_ready_false_when_one(room):
+async def test_can_start_false_with_single_player(room):
     await room.set_ready("p1", True)
-    assert room.is_all_ready() is False
+    assert room.can_start() is False
 
 
-async def test_is_all_ready_false_when_partial(room):
+async def test_can_start_false_when_partial(room):
     await room.add_player("p2", "Bob")
     await room.set_ready("p1", True)
     await room.set_ready("p2", False)
-    assert room.is_all_ready() is False
+    assert room.can_start() is False
 
 
-async def test_is_all_ready_true(room):
+async def test_can_start_true_when_all_ready(room):
     await room.add_player("p2", "Bob")
     await room.set_ready("p1", True)
     await room.set_ready("p2", True)
-    assert room.is_all_ready() is True
+    assert room.can_start() is True
+
+
+async def test_can_start_false_when_not_waiting(room):
+    await room.add_player("p2", "Bob")
+    await room.set_ready("p1", True)
+    await room.set_ready("p2", True)
+    room.state = RoomState.STARTING
+    assert room.can_start() is False
+
+
+async def test_mark_starting_transitions_state(room):
+    await room.add_player("p2", "Bob")
+    await room.set_ready("p1", True)
+    await room.set_ready("p2", True)
+    room.mark_starting()
+    assert room.state == RoomState.STARTING
+
+
+async def test_mark_starting_twice_raises(room):
+    room.mark_starting()
+    with pytest.raises(RoomJoinError) as e:
+        room.mark_starting()
+    assert e.value.code == "ROOM_ALREADY_STARTED"
 
 
 async def test_host_migration(room):

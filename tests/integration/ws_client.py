@@ -9,6 +9,8 @@ def make_msg(type_: str, payload: dict | None = None) -> str:
 
 
 class TestClient:
+    __test__ = False
+
     def __init__(self, url: str, nickname: str = "tester"):
         self.url = url
         self.nickname = nickname

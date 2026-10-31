@@ -21,6 +21,13 @@ class WebSocketHandler:
         self.dispatcher = dispatcher
 
     async def handle(self, ws):
+        request = getattr(ws, "request", None)
+        path = getattr(request, "path", None) if request is not None else None
+        if path is not None and path != config.WS_PATH:
+            log.warning("reject path=%s expected=%s", path, config.WS_PATH)
+            await ws.close(code=1008, reason="invalid path")
+            return
+
         conn = Connection(ws)
         session = self.sessions.create(conn)
         self.sessions.authenticate(session, player_id=conn.id)
@@ -36,15 +43,29 @@ class WebSocketHandler:
 
                 try:
                     data = json.loads(raw)
-                    msg = ClientMessage(
-                        type=data["type"],
-                        payload=data.get("payload", {}),
-                    )
-                except (KeyError, json.JSONDecodeError, TypeError) as e:
-                    log.warning("recv invalid id=%s error=%s raw=%r",
+                except (json.JSONDecodeError, TypeError) as e:
+                    log.warning("recv invalid json id=%s error=%s raw=%r",
                                 conn.id, e, raw[:200])
                     continue
 
+                if not isinstance(data, dict):
+                    log.warning("recv non-object id=%s type=%r",
+                                conn.id, type(data).__name__)
+                    continue
+
+                type_ = data.get("type")
+                if not isinstance(type_, str):
+                    log.warning("recv missing/invalid type id=%s raw=%r",
+                                conn.id, raw[:200])
+                    continue
+
+                payload = data.get("payload", {})
+                if not isinstance(payload, dict):
+                    log.warning("recv non-dict payload id=%s type=%r",
+                                conn.id, type(payload).__name__)
+                    payload = {}
+
+                msg = ClientMessage(type=type_, payload=payload)
                 log.info("recv id=%s type=%s payload=%s",
                          conn.id, msg.type, msg.payload)
 

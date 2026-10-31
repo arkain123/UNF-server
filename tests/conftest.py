@@ -4,6 +4,7 @@ import socket
 import pytest
 import websockets
 
+import config
 from network.session import SessionManager
 from network.dispatcher import Dispatcher
 from network.websocket_handler import WebSocketHandler
@@ -26,6 +27,12 @@ async def ws_server():
     handler = WebSocketHandler(sessions, rooms, dispatcher)
 
     port = _free_port()
-    async with websockets.serve(handler.handle, "127.0.0.1", port):
-        yield f"ws://127.0.0.1:{port}/ws"
+    async with websockets.serve(
+        handler.handle,
+        "127.0.0.1",
+        port,
+        ping_interval=config.PING_INTERVAL_SEC,
+        ping_timeout=config.PING_TIMEOUT_SEC,
+    ):
+        yield f"ws://127.0.0.1:{port}{config.WS_PATH}"
         await asyncio.sleep(0)

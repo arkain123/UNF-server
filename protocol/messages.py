@@ -9,6 +9,7 @@ class MsgType(str, Enum):
     JOIN_ROOM    = "join_room"
     LEAVE_ROOM   = "leave_room"
     SET_READY    = "set_ready"
+    START_MATCH  = "start_match"
 
     # server to client
     NICKNAME_SET   = "nickname_set"
@@ -19,6 +20,7 @@ class MsgType(str, Enum):
     ROOM_LEFT      = "room_left"
     ROOM_ERROR     = "room_error"
     OPPONENT_LEFT  = "opponent_left"
+    MATCH_STARTING = "match_starting"
 
 
 @dataclass

@@ -81,10 +81,19 @@ class Room:
                 raise RoomJoinError("ROOM_ALREADY_STARTED")
             slot.ready = ready
 
-    def is_all_ready(self) -> bool:
-        if len(self.players) < self.MAX_PLAYERS:
+    MIN_PLAYERS_TO_START = 2
+
+    def can_start(self) -> bool:
+        if self.state != RoomState.WAITING:
+            return False
+        if len(self.players) < self.MIN_PLAYERS_TO_START:
             return False
         return all(p.ready for p in self.players.values())
+
+    def mark_starting(self) -> None:
+        if self.state != RoomState.WAITING:
+            raise RoomJoinError("ROOM_ALREADY_STARTED")
+        self.state = RoomState.STARTING
 
     def public_state(self) -> dict:
         return self._public_state()

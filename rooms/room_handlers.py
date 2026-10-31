@@ -190,16 +190,55 @@ class RoomHandlers:
 
         await self._broadcast_room(room)
 
-        if room.is_all_ready() and room.state.value == "waiting":
-            await self._start_match(room)
+    # ---------- start_match ----------
+
+    async def handle_start_match(
+        self, session: Session, msg: ClientMessage
+    ) -> None:
+        if session.room_id is None:
+            return await self._send(session, ServerMessage(
+                type=MsgType.ROOM_ERROR,
+                payload={"error": "NOT_IN_ROOM"},
+            ))
+
+        room = self.rooms.find_room(session.room_id)
+        if room is None:
+            return await self._send(session, ServerMessage(
+                type=MsgType.ROOM_ERROR,
+                payload={"error": "ROOM_NOT_FOUND"},
+            ))
+
+        slot = room.players.get(session.player_id)
+        if slot is None or not slot.is_host:
+            return await self._send(session, ServerMessage(
+                type=MsgType.ROOM_ERROR,
+                payload={"error": "HOST_REQUIRED"},
+            ))
+
+        if room.state != room.state.__class__.WAITING:
+            return await self._send(session, ServerMessage(
+                type=MsgType.ROOM_ERROR,
+                payload={"error": "ROOM_ALREADY_STARTED"},
+            ))
+
+        if not room.can_start():
+            return await self._send(session, ServerMessage(
+                type=MsgType.ROOM_ERROR,
+                payload={"error": "NOT_ALL_READY"},
+            ))
+
+        await self._start_match(room)
 
     async def _start_match(self, room: Room) -> None:
-        room.state = room.state.__class__.STARTING
+        try:
+            room.mark_starting()
+        except RoomJoinError as e:
+            return
         # TODO: match = Match(room, ...); await match.start()
         for pid in room.get_player_ids():
             s = self.sessions.get_by_player(pid)
             if s:
                 await self._send(s, ServerMessage(
-                    type="match_starting",
+                    type=MsgType.MATCH_STARTING,
                     payload={"room_id": room.id},
                 ))

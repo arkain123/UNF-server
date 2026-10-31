@@ -15,6 +15,7 @@ class Dispatcher:
             MsgType.JOIN_ROOM.value:   room_handlers.handle_join_room,
             MsgType.LEAVE_ROOM.value:  room_handlers.handle_leave_room,
             MsgType.SET_READY.value:   room_handlers.handle_set_ready,
+            MsgType.START_MATCH.value: room_handlers.handle_start_match,
         }
 
     async def dispatch(self, session, msg):
