@@ -1,0 +1,9 @@
+class RoomError(str, Enum):
+    ROOM_NOT_FOUND       = "ROOM_NOT_FOUD"
+    ROOM_FULL            = "ROOM_FULL"
+    ROOM_ALREADY_STARTED = "ROOM_ALREADY_STARTED"
+    ALREADY_IN_ROOM      = "ALREADY_IN_ROOM"
+    NOT_IN_ROOM          = "NOT_IN_ROOM"
+    NOT_HOST             = "NOT_HOST"
+    INVALID_ROOM_CODE    = "INVALID_ROOM_CODE"
+    CANNOT_JOIN_OWN      = "CANNOT_JOIN_OWN"
