@@ -15,10 +15,11 @@ log = logging.getLogger("unf.server")
 
 class WebSocketHandler:
     def __init__(self, sessions: SessionManager, rooms: RoomManager,
-                 dispatcher: Dispatcher):
+            dispatcher: Dispatcher, match_handlers=None):
         self.sessions = sessions
         self.rooms = rooms
         self.dispatcher = dispatcher
+        self.match_handlers = match_handlers
 
     async def handle(self, ws):
         request = getattr(ws, "request", None)
@@ -79,6 +80,23 @@ class WebSocketHandler:
 
     async def _cleanup(self, session):
         if session.room_id:
+            room_id = session.room_id
+            m = None
+            if self.match_handlers is not None:
+                m = self.match_handlers.matches.pop(room_id, None)
+            if m is None:
+                room_before = self.rooms.find_room(room_id)
+                m = getattr(room_before, "match", None) if room_before else None
+            if m is not None:
+                try:
+                    await m.stop()
+                except Exception:
+                    log.exception("match.stop failed id=%s room=%s",
+                                  session.id, room_id)
+                room_before = self.rooms.find_room(room_id)
+                if room_before is not None and getattr(room_before, "match", None) is m:
+                    room_before.match = None
+
             room = self.rooms.find_room(session.room_id)
             removed = await self.rooms.leave_room(session.player_id, session.room_id)
             if room and not removed:

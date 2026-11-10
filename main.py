@@ -6,6 +6,7 @@ import ssl
 import websockets
 
 from infra.logger import setup_logger
+from game.match_handlers import MatchHandlers
 from network.session import SessionManager
 from network.dispatcher import Dispatcher
 from network.websocket_handler import WebSocketHandler
@@ -26,18 +27,17 @@ async def run(host: str, port: int, *, use_tls: bool = False,
 
     sessions = SessionManager()
     rooms = RoomManager()
-    room_handlers = RoomHandlers(sessions, rooms)
-    dispatcher = Dispatcher(room_handlers)
-    handler = WebSocketHandler(sessions, rooms, dispatcher)
+    match_handlers = MatchHandlers(sessions, rooms)
+    room_handlers = RoomHandlers(sessions, rooms, match_handlers)
+    dispatcher = Dispatcher(room_handlers, match_handlers)
+    handler = WebSocketHandler(sessions, rooms, dispatcher, match_handlers)
 
     ssl_ctx = _build_ssl_context(cert, key) if use_tls else None
     scheme = "wss" if use_tls else "ws"
     log.info("server listening on %s://%s:%s%s", scheme, host, port, config.WS_PATH)
 
     async with websockets.serve(
-        handler.handle,
-        host,
-        port,
+        handler.handle, host, port,
         ping_interval=config.PING_INTERVAL_SEC,
         ping_timeout=config.PING_TIMEOUT_SEC,
         ssl=ssl_ctx,

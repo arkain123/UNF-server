@@ -1,14 +1,23 @@
+import logging
+
+from game.match import Match
+from game.match_handlers import MatchHandlers
 from network.session import Session, SessionManager
 from rooms.room_manager import RoomManager
-from rooms.room import Room, RoomJoinError
+from rooms.room import Room, RoomJoinError, RoomState
 from rooms.nickname import validate_nickname
 from protocol.messages import ClientMessage, ServerMessage, MsgType
+from websockets.exceptions import ConnectionClosed
+
+log = logging.getLogger("unf.server")
 
 
 class RoomHandlers:
-    def __init__(self, sessions: SessionManager, rooms: RoomManager):
+    def __init__(self, sessions: SessionManager, rooms: RoomManager,
+        match_handlers: MatchHandlers | None = None):
         self.sessions = sessions
         self.rooms = rooms
+        self.match_handlers = match_handlers
 
     # HELPERS
 
@@ -139,6 +148,16 @@ class RoomHandlers:
             ))
 
         room_id = session.room_id
+        # Stop and unregister the match if one is running.
+        if self.match_handlers is not None:
+            m = self.match_handlers.matches.pop(room_id, None)
+            if m is not None:
+                await m.stop()
+                room_obj = self.rooms.find_room(room_id)
+                if room_obj is not None and room_obj.match is m:
+                    room_obj.match = None
+                    room_obj.state = RoomState.FINISHE
+
         room = self.rooms.find_room(room_id)
         removed = await self.rooms.leave_room(session.player_id, room_id)
         self.sessions.unbind_room(session)
@@ -232,9 +251,31 @@ class RoomHandlers:
     async def _start_match(self, room: Room) -> None:
         try:
             room.mark_starting()
-        except RoomJoinError as e:
+        except RoomJoinError:
             return
-        # TODO: match = Match(room, ...); await match.start()
+
+        async def broadcast(msg: ServerMessage) -> None:
+            r = self.rooms.find_room(room.id)
+            if r is None:
+                return
+            for pid in r.get_player_ids():
+                s = self.sessions.get_by_player(pid)
+                if s is None:
+                    continue
+                try:
+                    await s.connection.send(msg)
+                except ConnectionClosed:
+                    log.debug("broadcast skip closed id=%s", pid)
+
+        match = Match(room=room, broadcast_fn=broadcast)
+        room.match = match
+        room.state = RoomState.IN_MATCH
+
+        if self.match_handlers is not None:
+            self.match_handlers.matches[room.id] = match
+
+        await match.start()
+
         for pid in room.get_player_ids():
             s = self.sessions.get_by_player(pid)
             if s:

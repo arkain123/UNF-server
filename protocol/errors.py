@@ -1,4 +1,5 @@
 class RoomError(str, Enum):
+    # ---------- LOBBY ---------
     ROOM_NOT_FOUND       = "ROOM_NOT_FOUD"
     ROOM_FULL            = "ROOM_FULL"
     ROOM_ALREADY_STARTED = "ROOM_ALREADY_STARTED"
@@ -7,3 +8,19 @@ class RoomError(str, Enum):
     NOT_HOST             = "NOT_HOST"
     INVALID_ROOM_CODE    = "INVALID_ROOM_CODE"
     CANNOT_JOIN_OWN      = "CANNOT_JOIN_OWN"
+
+    # ---------- CARD ----------
+    CARD_NOT_OWNED = "CARD_NOT_OWNED"
+    CARD_LEVEL_MISMATCH = "CARD_LEVEL_MISMATCH"
+    CARD_LEVEL_INVALID = "CARD_LEVEL_INVALID"
+    CARD_NOT_FOUND = "CARD_NOT_FOUND"
+
+    # ---------- BUBBLE ----------
+    BUBBLE_NOT_FOUND = "BUBBLE_NOT_FOUND"
+    BUBBLE_ALREADY_POPPED = "BUBBLE_ALREADY_POPPED"
+    BUBBLE_TOO_FAST = "BUBBLE_TOO_FAST"
+    BUBBLE_EXPIRED = "BUBBLE_EXPIRED"
+
+    # ---------- MATCH ----------
+    NOT_IN_MATCH = "NOT_IN_MATCH"
+    MATCH_NOT_FOUND = "MATCH_NOT_FOUND"

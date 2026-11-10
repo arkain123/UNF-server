@@ -5,6 +5,7 @@ import pytest
 import websockets
 
 import config
+from game.match_handlers import MatchHandlers
 from network.session import SessionManager
 from network.dispatcher import Dispatcher
 from network.websocket_handler import WebSocketHandler
@@ -22,9 +23,10 @@ def _free_port() -> int:
 async def ws_server():
     sessions = SessionManager()
     rooms = RoomManager()
-    handlers = RoomHandlers(sessions, rooms)
-    dispatcher = Dispatcher(handlers)
-    handler = WebSocketHandler(sessions, rooms, dispatcher)
+    match_handlers = MatchHandlers(sessions, rooms)
+    room_handlers = RoomHandlers(sessions, rooms, match_handlers)
+    dispatcher = Dispatcher(room_handlers, match_handlers)
+    handler = WebSocketHandler(sessions, rooms, dispatcher, match_handlers)
 
     port = _free_port()
     async with websockets.serve(
