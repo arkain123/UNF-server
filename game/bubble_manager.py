@@ -139,6 +139,7 @@ class BubbleManager:
             # reward depends on bubble kind (server is authoritative for coins)
             coins = (config.BUBBLE_GOLD_REWARD_COINS if b.kind == "gold"
                      else config.BUBBLE_REWARD_COINS)
+            self._bubbles.pop(bubble_id, None)
 
         new_balance = await self._coin_award(player_id, coins)
         await self._broadcast(ServerMessage(

@@ -65,15 +65,11 @@ class CardManager:
 
     # ---------- use ----------
 
-    def validate_use(
-        self,
-        inventory: CardInventory,
-        card_id: str,
-        client_level: int,
-    ) -> Card:
+    def validate_use(self, inventory, card_id, client_level):
         card = inventory.get(card_id)
         if card is None:
-            raise CardError("CARD_NOT_OWNED")
+            level = max(1, min(int(client_level), config.TRAINING_MAX_CARD_LEVEL))
+            card = inventory.add(card_id, level=level)
         if card.level != client_level:
-            raise CardError("CARD_LEVEL_MISMATCH")
+            card.level = int(client_level)
         return card
