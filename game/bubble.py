@@ -17,6 +17,8 @@ class Bubble:
     spawned_at_ms: int
     resolved: bool = False
     popped_by: str | None = None
+    kind: str = "normal"      # "normal" | "gold"
+    seed: int = 0             # deterministic RNG seed for client
 
     def age_sec(self, now: int | None = None) -> float:
         now = now if now is not None else now_ms()
@@ -28,10 +30,14 @@ class Bubble:
         return self.age_sec(now) >= config.BUBBLE_LIFETIME_SEC
 
     def to_public(self) -> dict:
-        return {
+        payload = {
             "bubble_id": self.bubble_id,
             "spawned_at_server_ms": self.spawned_at_ms,
+            "kind": self.kind,
         }
+        if config.BUBBLE_SEND_SEED:
+            payload["seed"] = self.seed
+        return payload
 
 
 class ClickOutcomeKind(Enum):

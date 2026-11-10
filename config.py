@@ -66,17 +66,20 @@ BUBBLES_PER_SPAWN = 1             # sum of bubbles appearing per tick
 BUBBLE_MAX_ACTIVE = 8             # cap on concurrent bubbles
 BUBBLE_LIFETIME_SEC = 5.0         # bubble despawns if not popped
 BUBBLE_ROUND_DURATION_SEC = 60    # round length (0 = endless)
+BUBBLE_GOLD_CHANCE = 0.10
 
 # Scoring / latency validation
 BUBBLE_MAX_CLIENT_LATENCY_SEC = 0.75  # reject client-reported reaction beyond this
 BUBBLE_USE_SERVER_TIME = True         # True: judge by server arrival time; False: trust client ts
 BUBBLE_REACTION_TIME_MIN_SEC = 0.05   # anti-bot: reject sub-human reaction
 BUBBLE_TIE_BREAK = "arrival"          # "arrival" | "player_id"
+BUBBLE_SEND_SEED = True
 
 assert BUBBLE_SPAWN_INTERVAL_SEC > 0, "BUBBLE_SPAWN_INTERVAL_SEC must be > 0"
 assert BUBBLES_PER_SPAWN >= 1, "BUBBLES_PER_SPAWN must be >= 1"
 assert BUBBLE_REWARD_COINS >= 0, "BUBBLE_REWARD_COINS must be >= 0"
 assert BUBBLE_MAX_ACTIVE >= BUBBLES_PER_SPAWN, "BUBBLE_MAX_ACTIVE must fit one batch"
+assert 0.0 <= BUBBLE_GOLD_CHANCE <= 1.0, "BUBBLE_GOLD_CHANCE must be in [0, 1]"
 
 # ---------- PROTOCOL ----------
 

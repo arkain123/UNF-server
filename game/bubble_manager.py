@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import hashlib
+import random
 import uuid
 from typing import Awaitable, Callable
 
@@ -66,7 +68,6 @@ class BubbleManager:
     async def _tick(self) -> None:
         now = now_ms()
 
-        # Expire stale bubbles.
         for b in list(self._bubbles.values()):
             if not b.resolved and b.is_expired(now):
                 self._bubbles.pop(b.bubble_id, None)
@@ -75,7 +76,6 @@ class BubbleManager:
                     payload={"bubble_id": b.bubble_id, "reason": "expired"},
                 ))
 
-        # Respect concurrent cap.
         active = sum(1 for b in self._bubbles.values() if not b.resolved)
         if active >= config.BUBBLE_MAX_ACTIVE:
             return
@@ -85,7 +85,20 @@ class BubbleManager:
         for _ in range(config.BUBBLES_PER_SPAWN):
             if active + len(batch) >= config.BUBBLE_MAX_ACTIVE:
                 break
-            b = Bubble(bubble_id=uuid.uuid4().hex, spawned_at_ms=spawn_now)
+
+            bubble_id = uuid.uuid4().hex
+
+            kind = "gold" if random.random() < config.BUBBLE_GOLD_CHANCE else "normal"
+
+            seed_bytes = hashlib.sha256(bubble_id.encode("ascii")).digest()
+            seed = int.from_bytes(seed_bytes[:4], "big")
+
+            b = Bubble(
+                bubble_id=bubble_id,
+                spawned_at_ms=spawn_now,
+                kind=kind,
+                seed=seed,
+            )
             self._bubbles[b.bubble_id] = b
             batch.append(b)
 
