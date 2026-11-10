@@ -79,45 +79,51 @@ class WebSocketHandler:
             log.info("connection closed id=%s", conn.id)
 
     async def _cleanup(self, session):
-        if session.room_id:
-            room_id = session.room_id
-            m = None
-            if self.match_handlers is not None:
-                m = self.match_handlers.matches.pop(room_id, None)
-            if m is None:
-                room_before = self.rooms.find_room(room_id)
-                m = getattr(room_before, "match", None) if room_before else None
-            if m is not None:
-                try:
-                    await m.stop()
-                except Exception:
-                    log.exception("match.stop failed id=%s room=%s",
-                                  session.id, room_id)
-                room_before = self.rooms.find_room(room_id)
-                if room_before is not None and getattr(room_before, "match", None) is m:
-                    room_before.match = None
+        room_id = session.room_id
+        if room_id is None:
+            self.sessions.destroy(session)
+            return
 
-            room = self.rooms.find_room(session.room_id)
-            removed = await self.rooms.leave_room(session.player_id, session.room_id)
-            if room and not removed:
-                for pid in room.get_player_ids():
-                    s = self.sessions.get_by_player(pid)
-                    if s:
-                        await s.connection.send(ServerMessage(
-                            type=MsgType.OPPONENT_LEFT,
-                            payload={
-                                "player_id": session.player_id,
-                                "display_name": session.nickname,
-                            },
-                        ))
-                state_msg = ServerMessage(
-                    type=MsgType.ROOM_STATE,
-                    payload={"room": room.public_state()},
-                )
-                for pid in room.get_player_ids():
-                    s = self.sessions.get_by_player(pid)
-                    if s:
-                        await s.connection.send(state_msg)
-            log.info("cleanup id=%s room=%s removed=%s",
-                     session.id, session.room_id, removed)
+        m = None
+        if self.match_handlers is not None:
+            m = self.match_handlers.matches.pop(room_id, None)
+        if m is None:
+            room_obj = self.rooms.find_room(room_id)
+            m = getattr(room_obj, "match", None) if room_obj else None
+            if m is not None and self.match_handlers is not None:
+                self.match_handlers.matches.pop(room_id, None)
+
+        if m is not None:
+            try:
+                await m.stop()
+            except Exception:
+                log.exception("match.stop failed id=%s room=%s",
+                              session.id, room_id)
+            room_obj = self.rooms.find_room(room_id)
+            if room_obj is not None and getattr(room_obj, "match", None) is m:
+                room_obj.match = None
+
+        room = self.rooms.find_room(room_id)
+        removed = await self.rooms.leave_room(session.player_id, room_id)
+        if room and not removed:
+            for pid in room.get_player_ids():
+                s = self.sessions.get_by_player(pid)
+                if s:
+                    await s.connection.send(ServerMessage(
+                        type=MsgType.OPPONENT_LEFT,
+                        payload={
+                            "player_id": session.player_id,
+                            "display_name": session.nickname,
+                        },
+                    ))
+            state_msg = ServerMessage(
+                type=MsgType.ROOM_STATE,
+                payload={"room": room.public_state()},
+            )
+            for pid in room.get_player_ids():
+                s = self.sessions.get_by_player(pid)
+                if s:
+                    await s.connection.send(state_msg)
+        log.info("cleanup id=%s room=%s removed=%s",
+                 session.id, room_id, removed)
         self.sessions.destroy(session)

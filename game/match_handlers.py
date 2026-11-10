@@ -90,7 +90,6 @@ class MatchHandlers:
                 payload={"error": e.code},
             ))
 
-        # Always push the authoritative (id, level) - client is a cache.
         await self._send(session, ServerMessage(
             type=MsgType.CARD_LEVEL_UPDATED,
             payload={"card_id": card.card_id, "level": card.level},
@@ -141,6 +140,7 @@ class MatchHandlers:
 
         bubble_id = msg.payload.get("bubble_id", "")
         client_ts = msg.payload.get("client_ts")
+
         outcome = await m.bubbles.resolve_click(
             player_id=session.player_id,
             bubble_id=bubble_id,
@@ -153,4 +153,48 @@ class MatchHandlers:
         await self._send(session, ServerMessage(
             type=MsgType.BUBBLE_ERROR,
             payload={"bubble_id": bubble_id, "error": outcome.kind.name},
+        ))
+
+    # ---------- gameplay sync (thin relay: client is source of truth) ----------
+
+    async def handle_damage_dealt(
+        self, session: Session, msg: ClientMessage
+    ) -> None:
+        m = await self._require_match(session)
+        if m is None:
+            return
+
+        target = msg.payload.get("target_player_id", "")
+        amount = msg.payload.get("amount", 0)
+        source = msg.payload.get("source", "card")
+
+        log.info("damage room=%s by=%s target=%s amount=%s source=%s",
+                 m.room_id, session.player_id, target, amount, source)
+
+        await self._broadcast(m.room_id, ServerMessage(
+            type=MsgType.DAMAGE_APPLIED,
+            payload={
+                "by_player_id": session.player_id,
+                "target_player_id": target,
+                "amount": amount,
+                "source": source,
+            },
+        ))
+
+    async def handle_effect_applied(
+        self, session: Session, msg: ClientMessage
+    ) -> None:
+        m = await self._require_match(session)
+        if m is None:
+            return
+
+        payload = dict(msg.payload)
+        payload["by_player_id"] = session.player_id
+
+        log.info("effect room=%s by=%s payload=%s",
+                 m.room_id, session.player_id, payload)
+
+        await self._broadcast(m.room_id, ServerMessage(
+            type=MsgType.EFFECT_CONFIRMED,
+            payload=payload,
         ))

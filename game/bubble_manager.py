@@ -118,21 +118,15 @@ class BubbleManager:
                 self._bubbles.pop(bubble_id, None)
                 return ClickOutcome.rejected(ClickOutcomeKind.EXPIRED, bubble_id)
 
-            # Anti-bot: reject sub-human reactions.
             if b.age_sec() < config.BUBBLE_REACTION_TIME_MIN_SEC:
                 return ClickOutcome.rejected(ClickOutcomeKind.TOO_FAST, bubble_id)
 
-            if (not config.BUBBLE_USE_SERVER_TIME and client_ts is not None
-                    and abs(client_ts - b.spawned_at_ms / 1000.0)
-                        > config.BUBBLE_MAX_CLIENT_LATENCY_SEC):
-                log.debug("clock skew room=%s player=%s bubble=%s",
-                          self.room_id, player_id, bubble_id)
+            # TODO: client_ts ignored — server arrival time wins.
 
             b.resolved = True
             b.popped_by = player_id
             coins = config.BUBBLE_REWARD_COINS
 
-        # Award + broadcast outside the lock.
         new_balance = await self._coin_award(player_id, coins)
         await self._broadcast(ServerMessage(
             type=MsgType.BUBBLE_RESULT,

@@ -17,6 +17,8 @@ class MsgType(str, Enum):
     CARD_LEVEL_UP  = "card_level_up"
     USE_CARD       = "use_card"
     BUBBLE_CLICK   = "bubble_click"
+    DAMAGE_DEALT   = "damage_dealt"
+    EFFECT_APPLIED = "effect_applied"
 
     # server to client (lobby)
     NICKNAME_SET   = "nickname_set"
@@ -40,6 +42,9 @@ class MsgType(str, Enum):
     BUBBLE_RESULT  = "bubble_result"
     BUBBLE_ERROR   = "bubble_error"
     COIN_UPDATE    = "coin_update"
+
+    DAMAGE_APPLIED   = "damage_applied"
+    EFFECT_CONFIRMED = "effect_confirmed"
 
     MATCH_STARTED = "match_started"
     MATCH_ENDED   = "match_ended"

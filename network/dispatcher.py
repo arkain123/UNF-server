@@ -19,17 +19,19 @@ class Dispatcher:
         }
         if match_handlers is not None:
             self.handlers.update({
-                MsgType.TRAIN_CARD.value:    match_handlers.handle_train_card,
-                MsgType.CARD_LEVEL_UP.value: match_handlers.handle_card_level_up,
-                MsgType.USE_CARD.value:      match_handlers.handle_use_card,
-                MsgType.BUBBLE_CLICK.value:  match_handlers.handle_bubble_click,
+                MsgType.TRAIN_CARD.value:     match_handlers.handle_train_card,
+                MsgType.CARD_LEVEL_UP.value:  match_handlers.handle_card_level_up,
+                MsgType.USE_CARD.value:       match_handlers.handle_use_card,
+                MsgType.BUBBLE_CLICK.value:   match_handlers.handle_bubble_click,
+                MsgType.DAMAGE_DEALT.value:   match_handlers.handle_damage_dealt,
+                MsgType.EFFECT_APPLIED.value: match_handlers.handle_effect_applied,
             })
 
     async def dispatch(self, session: Session, msg: ClientMessage):
         handler = self.handlers.get(msg.type)
         if handler is None:
-            log.warning("unknown message type=%s from id=%s",
-                        msg.type, session.id)
+            log.warning("unknown message type=%s payload=%s from id=%s",
+                        msg.type, msg.payload, session.id)
             return
         log.debug("dispatch id=%s type=%s handler=%s",
                   session.id, msg.type, handler.__name__)

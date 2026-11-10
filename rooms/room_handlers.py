@@ -86,7 +86,11 @@ class RoomHandlers:
 
         await self._send(session, ServerMessage(
             type=MsgType.ROOM_CREATED,
-            payload={"room_id": room.id, "room": room.public_state()},
+            payload={
+                "room_id": room.id,
+                "room": room.public_state(),
+                "my_player_id": session.player_id,
+            },
         ))
 
     # ---------- join_room ----------
@@ -130,8 +134,12 @@ class RoomHandlers:
         self.sessions.bind_room(session, room.id)
 
         await self._send(session, ServerMessage(
-            type=MsgType.ROOM_JOINED,
-            payload={"room_id": room.id, "room": room.public_state()},
+            type=MsgType.ROOM_CREATED,
+            payload={
+                "room_id": room.id,
+                "room": room.public_state(),
+                "my_player_id": session.player_id,
+            },
         ))
 
         await self._broadcast_room(room)

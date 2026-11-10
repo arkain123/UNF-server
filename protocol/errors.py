@@ -1,6 +1,9 @@
+from enum import Enum
+
+
 class RoomError(str, Enum):
     # ---------- LOBBY ---------
-    ROOM_NOT_FOUND       = "ROOM_NOT_FOUD"
+    ROOM_NOT_FOUND       = "ROOM_NOT_FOUND"
     ROOM_FULL            = "ROOM_FULL"
     ROOM_ALREADY_STARTED = "ROOM_ALREADY_STARTED"
     ALREADY_IN_ROOM      = "ALREADY_IN_ROOM"
