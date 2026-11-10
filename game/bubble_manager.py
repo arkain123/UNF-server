@@ -134,11 +134,11 @@ class BubbleManager:
             if b.age_sec() < config.BUBBLE_REACTION_TIME_MIN_SEC:
                 return ClickOutcome.rejected(ClickOutcomeKind.TOO_FAST, bubble_id)
 
-            # TODO: client_ts ignored — server arrival time wins.
-
             b.resolved = True
             b.popped_by = player_id
-            coins = config.BUBBLE_REWARD_COINS
+            # reward depends on bubble kind (server is authoritative for coins)
+            coins = (config.BUBBLE_GOLD_REWARD_COINS if b.kind == "gold"
+                     else config.BUBBLE_REWARD_COINS)
 
         new_balance = await self._coin_award(player_id, coins)
         await self._broadcast(ServerMessage(
@@ -148,6 +148,7 @@ class BubbleManager:
                 "winner_player_id": player_id,
                 "coins_awarded": coins,
                 "new_balance": new_balance,
+                "kind": b.kind,
             },
         ))
         await self._broadcast(ServerMessage(
@@ -156,6 +157,7 @@ class BubbleManager:
                 "player_id": player_id,
                 "balance": new_balance,
                 "delta": coins,
+                "kind": b.kind,
             },
         ))
         return ClickOutcome.won(bubble_id, player_id, coins)

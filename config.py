@@ -57,6 +57,7 @@ MAX_RESOURCES = 10
 
 # Economy
 BUBBLE_REWARD_COINS = 20          # coins per bubble popped 
+BUBBLE_GOLD_REWARD_COINS = 100
 COINS_PER_TRAINING_LEVEL = 10     # cost/reward tuning for training
 TRAINING_MAX_CARD_LEVEL = 10
 
