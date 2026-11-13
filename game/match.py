@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Awaitable, Callable
 
 import config
@@ -15,6 +16,10 @@ log = logging.getLogger("unf.game.match")
 BroadcastFn = Callable[[ServerMessage], Awaitable[None]]
 
 
+def now_ms() -> int:
+    return int(time.monotonic() * 1000)
+
+
 class Match:
     def __init__(self, room, broadcast_fn: BroadcastFn):
         self.room = room
@@ -24,10 +29,14 @@ class Match:
         self.cards: dict[str, CardInventory] = {}
         self.coins: dict[str, int] = {}
         self.card_manager = CardManager(self.room_id)
+
+        self.started_at_ms: int = 0
+
         self.bubbles = BubbleManager(
             room_id=self.room_id,
             broadcast=broadcast_fn,
             coin_award=self._award_coins,
+            reward_multiplier=self.progression_multiplier,
         )
         self._round_task: asyncio.Task | None = None
         self._running = False
@@ -38,6 +47,7 @@ class Match:
         if self._running:
             return
         self._running = True
+        self.started_at_ms = now_ms()
 
         for pid in self.room.get_player_ids():
             self.cards[pid] = CardInventory()
@@ -82,6 +92,20 @@ class Match:
                 await self.stop()
         except asyncio.CancelledError:
             pass
+
+    # ---------- reward progression ----------
+
+    def elapsed_sec(self) -> float:
+        if not self._running or self.started_at_ms == 0:
+            return 0.0
+        return max(0.0, (now_ms() - self.started_at_ms) / 1000.0)
+
+    def progression_multiplier(self) -> float:
+        """min(1 + (elapsed / interval) * increment, max_multiplier)"""
+        elapsed = self.elapsed_sec()
+        mult = 1.0 + (elapsed / config.REWARD_PROGRESSION_INTERVAL_SEC) * \
+            config.REWARD_PROGRESSION_INCREMENT
+        return min(mult, config.REWARD_PROGRESSION_MAX_MULTIPLIER)
 
     # ---------- helpers ----------
 

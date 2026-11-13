@@ -18,11 +18,17 @@ CoinAwardFn = Callable[[str, int], Awaitable[int]]
 
 
 class BubbleManager:
-    def __init__(self, room_id: str, broadcast: BroadcastFn,
-                 coin_award: CoinAwardFn):
+    def __init__(
+        self,
+        room_id: str,
+        broadcast: BroadcastFn,
+        coin_award: CoinAwardFn,
+        reward_multiplier: RewardMultiplierFn | None = None,
+    ):
         self.room_id = room_id
         self._broadcast = broadcast
         self._coin_award = coin_award
+        self._reward_multiplier = reward_multiplier or (lambda: 1.0)
 
         self._bubbles: dict[str, Bubble] = {}
         self._lock = asyncio.Lock()
@@ -173,11 +179,16 @@ class BubbleManager:
             b.resolved = True
             b.popped_by = player_id
 
-            # client is source of truth for QTE score, clamp to server cap
-            cap = (config.BUBBLE_GOLD_REWARD_COINS * 10
-                   if b.kind == "gold"
-                   else config.BUBBLE_REWARD_COINS * 10)
-            coins = max(1, min(int(client_coins), cap))
+            cap = (
+                config.BUBBLE_GOLD_REWARD_COINS * 10
+                if b.kind == "gold"
+                else config.BUBBLE_REWARD_COINS * 10
+            )
+            base_coins = max(1, min(int(client_coins), cap))
+
+
+            multiplier = self._reward_multiplier()
+            coins = max(1, int(round(base_coins * multiplier)))
 
             self._bubbles.pop(bubble_id, None)
             kind = b.kind
@@ -189,7 +200,7 @@ class BubbleManager:
                 "bubble_id": bubble_id,
                 "winner_player_id": player_id,
                 "coins_awarded": coins,
-                "new_balance": new_balance,
+                "multiplier": round(multiplier, 3),
                 "kind": kind,
             },
         ))
