@@ -68,6 +68,12 @@ BUBBLE_MAX_ACTIVE = 8             # cap on concurrent bubbles
 BUBBLE_LIFETIME_SEC = 5.0         # bubble despawns if not popped
 BUBBLE_ROUND_DURATION_SEC = 60    # round length (0 = endless)
 BUBBLE_GOLD_CHANCE = 0.10
+BUBBLE_GROUP_MIN = 3
+BUBBLE_GROUP_MAX = 8
+BUBBLE_GROUP_DELAY_MIN = 0.3
+BUBBLE_GROUP_DELAY_MAX = 2.0
+BUBBLE_GROUP_PAUSE_MIN = 2.0    # pause between groups (after last bubble dies)
+BUBBLE_GROUP_PAUSE_MAX = 4.0
 
 # Scoring / latency validation
 BUBBLE_MAX_CLIENT_LATENCY_SEC = 0.75  # reject client-reported reaction beyond this
