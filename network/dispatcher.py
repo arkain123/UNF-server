@@ -25,6 +25,7 @@ class Dispatcher:
                 MsgType.BUBBLE_CLICK.value:   match_handlers.handle_bubble_click,
                 MsgType.DAMAGE_DEALT.value:   match_handlers.handle_damage_dealt,
                 MsgType.EFFECT_APPLIED.value: match_handlers.handle_effect_applied,
+                MsgType.MATCH_FINISHED.value: match_handlers.handle_match_finished,
             })
 
     async def dispatch(self, session: Session, msg: ClientMessage):

@@ -219,3 +219,24 @@ class MatchHandlers:
             type=MsgType.EFFECT_CONFIRMED,
             payload=payload,
         ))
+
+    async def handle_match_finished(
+        self, session: Session, msg: ClientMessage
+    ) -> None:
+        m = await self._require_match(session)
+        if m is None:
+            return
+
+        winner_id = str(msg.payload.get("winner_player_id", ""))
+        my_hp = msg.payload.get("my_hp")
+        enemy_hp = msg.payload.get("enemy_hp")
+
+        log.info(
+            "match finished room=%s by=%s winner=%s my_hp=%r enemy_hp=%r",
+            m.room_id, session.player_id, winner_id, my_hp, enemy_hp,
+        )
+
+        if not m._running:
+            return
+
+        await m.stop()
