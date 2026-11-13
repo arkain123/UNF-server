@@ -33,8 +33,6 @@ class Dispatcher:
             log.warning("unknown message type=%s payload=%s from id=%s",
                         msg.type, msg.payload, session.id)
             return
-        try:
-            await handler(session, msg)
-        except Exception:
-            log.exception("handler %s failed for type=%s id=%s",
-                        handler.__name__, msg.type, session.id)
+        log.debug("dispatch id=%s type=%s handler=%s",
+                  session.id, msg.type, handler.__name__)
+        await handler(session, msg)
