@@ -40,6 +40,7 @@ class MsgType(str, Enum):
 
     BUBBLE_SPAWN   = "bubble_spawn"
     BUBBLE_DESPAWN = "bubble_despawn"
+    BUBBLE_GROUP   = "bubble_group"
     BUBBLE_RESULT  = "bubble_result"
     BUBBLE_ERROR   = "bubble_error"
     COIN_UPDATE    = "coin_update"
