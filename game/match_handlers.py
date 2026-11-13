@@ -145,6 +145,7 @@ class MatchHandlers:
             player_id=session.player_id,
             bubble_id=bubble_id,
             client_ts=float(client_ts) if client_ts is not None else None,
+            client_coins=int(msg.payload.get("coins", 0)),
         )
 
         if outcome.kind is ClickOutcomeKind.WON:

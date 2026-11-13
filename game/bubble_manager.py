@@ -68,8 +68,12 @@ class BubbleManager:
     async def _tick(self) -> None:
         now = now_ms()
 
+        # Expire + cleanup resolved (resolved bubbles must NOT count toward active cap)
         for b in list(self._bubbles.values()):
-            if not b.resolved and b.is_expired(now):
+            if b.resolved:
+                self._bubbles.pop(b.bubble_id, None)
+                continue
+            if b.is_expired(now):
                 self._bubbles.pop(b.bubble_id, None)
                 await self._broadcast(ServerMessage(
                     type=MsgType.BUBBLE_DESPAWN,
@@ -117,10 +121,7 @@ class BubbleManager:
 
     # ---------- click resolution ----------
 
-    async def resolve_click(
-        self, player_id: str, bubble_id: str,
-        client_ts: float | None = None,
-    ) -> ClickOutcome:
+    async def resolve_click(self, player_id, bubble_id, client_ts=None, client_coins=0):
         async with self._lock:
             b = self._bubbles.get(bubble_id)
             if b is None:
@@ -130,15 +131,13 @@ class BubbleManager:
             if b.is_expired():
                 self._bubbles.pop(bubble_id, None)
                 return ClickOutcome.rejected(ClickOutcomeKind.EXPIRED, bubble_id)
-
             if b.age_sec() < config.BUBBLE_REACTION_TIME_MIN_SEC:
                 return ClickOutcome.rejected(ClickOutcomeKind.TOO_FAST, bubble_id)
 
             b.resolved = True
             b.popped_by = player_id
-            # reward depends on bubble kind (server is authoritative for coins)
-            coins = (config.BUBBLE_GOLD_REWARD_COINS if b.kind == "gold"
-                     else config.BUBBLE_REWARD_COINS)
+            cap = config.BUBBLE_GOLD_REWARD_COINS * 10 if b.kind == "gold" else config.BUBBLE_REWARD_COINS * 10
+            coins = max(1, min(int(client_coins), cap))
             self._bubbles.pop(bubble_id, None)
 
         new_balance = await self._coin_award(player_id, coins)
