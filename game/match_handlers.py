@@ -200,7 +200,7 @@ class MatchHandlers:
             payload=payload,
         ))
 
-    async def handle_match_finished(
+    async def handle_match_ended(
         self, session: Session, msg: ClientMessage
     ) -> None:
         m = await self._require_match(session)
@@ -212,7 +212,7 @@ class MatchHandlers:
         enemy_hp = msg.payload.get("enemy_hp")
 
         log.info(
-            "match finished room=%s by=%s winner=%s my_hp=%r enemy_hp=%r",
+            "match ended room=%s by=%s winner=%s my_hp=%r enemy_hp=%r",
             m.room_id, session.player_id, winner_id, my_hp, enemy_hp,
         )
 

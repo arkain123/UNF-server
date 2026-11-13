@@ -19,7 +19,7 @@ class MsgType(str, Enum):
     BUBBLE_CLICK   = "bubble_click"
     DAMAGE_DEALT   = "damage_dealt"
     EFFECT_APPLIED = "effect_applied"
-    MATCH_FINISHED = "match_finished"
+    MATCH_ENDED = "match_ended"
 
     # server to client (lobby)
     NICKNAME_SET   = "nickname_set"
