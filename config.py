@@ -64,9 +64,9 @@ TRAINING_MAX_CARD_LEVEL = 10
 # Spawning
 BUBBLE_SPAWN_INTERVAL_SEC = 1.5   # how often a new bubble appears
 BUBBLES_PER_SPAWN = 1             # sum of bubbles appearing per tick
-BUBBLE_MAX_ACTIVE = 8             # cap on concurrent bubbles
+BUBBLE_MAX_ACTIVE = 9999999             # cap on concurrent bubbles
 BUBBLE_LIFETIME_SEC = 5.0         # bubble despawns if not popped
-BUBBLE_ROUND_DURATION_SEC = 60    # round length (0 = endless)
+BUBBLE_ROUND_DURATION_SEC = 0    # round length (0 = endless)
 BUBBLE_GOLD_CHANCE = 0.10
 BUBBLE_GROUP_MIN = 3
 BUBBLE_GROUP_MAX = 8
