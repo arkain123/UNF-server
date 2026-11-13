@@ -17,23 +17,34 @@ class Bubble:
     spawned_at_ms: int
     resolved: bool = False
     popped_by: str | None = None
-    kind: str = "normal"      # "normal" | "gold"
-    seed: int = 0             # deterministic RNG seed for client
+    kind: str = "normal"        # "normal" | "gold"
+    seed: int = 0               # deterministic RNG seed for client
+    group_id: int = 0           # QteGroup instance id
+    spawn_delay: float = 0.0    # delay from group start before this bubble appears
+    lifetime: float = 5.0       # seconds, server & client should agree
+    size: float = 60.0          # display size
+    score: int = 0              # base reward (before progression multiplier)
 
     def age_sec(self, now: int | None = None) -> float:
         now = now if now is not None else now_ms()
         return (now - self.spawned_at_ms) / 1000.0
 
     def is_expired(self, now: int | None = None) -> bool:
-        if config.BUBBLE_LIFETIME_SEC <= 0:
+        # Per-bubble lifetime (from _generate_bubble).
+        if self.lifetime <= 0:
             return False
-        return self.age_sec(now) >= config.BUBBLE_LIFETIME_SEC
+        return self.age_sec(now) >= self.lifetime
 
     def to_public(self) -> dict:
         payload = {
             "bubble_id": self.bubble_id,
-            "spawned_at_server_ms": self.spawned_at_ms,
             "kind": self.kind,
+            "group_id": self.group_id,
+            "spawned_at_server_ms": self.spawned_at_ms,
+            "spawn_delay": round(self.spawn_delay, 4),
+            "lifetime": round(self.lifetime, 4),
+            "size": round(self.size, 3),
+            "score": self.score,
         }
         if config.BUBBLE_SEND_SEED:
             payload["seed"] = self.seed
