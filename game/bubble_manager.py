@@ -91,49 +91,36 @@ class BubbleManager:
                 return
             await self._spawn_one()
 
-    async def _spawn_one(self) -> str | None:
+    async def _spawn_one(self):
+        to_despawn = []
         async with self._lock:
             if not self._running:
                 return None
-
             now = now_ms()
-
-            # cleanup expired
             for b in list(self._bubbles.values()):
                 if not b.resolved and b.is_expired(now):
                     self._bubbles.pop(b.bubble_id, None)
-                    await self._broadcast(ServerMessage(
-                        type=MsgType.BUBBLE_DESPAWN,
-                        payload={"bubble_id": b.bubble_id, "reason": "expired"},
-                    ))
-
-            # safety cap
+                    to_despawn.append(b.bubble_id)
             active = sum(1 for b in self._bubbles.values() if not b.resolved)
             if active >= config.BUBBLE_MAX_ACTIVE:
                 return None
-
             bubble_id = uuid.uuid4().hex
             kind = "gold" if random.random() < config.BUBBLE_GOLD_CHANCE else "normal"
             seed_bytes = hashlib.sha256(bubble_id.encode("ascii")).digest()
             seed = int.from_bytes(seed_bytes[:4], "big")
-
-            b = Bubble(
-                bubble_id=bubble_id,
-                spawned_at_ms=now_ms(),
-                kind=kind,
-                seed=seed,
-            )
+            b = Bubble(bubble_id=bubble_id, spawned_at_ms=now_ms(), kind=kind, seed=seed)
             self._bubbles[bubble_id] = b
             self._spawn_index += 1
             spawn_idx = self._spawn_index
 
-        # broadcast outside the lock (await is not allowed inside `async with` in some cases)
+        for bid in to_despawn:
+            await self._broadcast(ServerMessage(
+                type=MsgType.BUBBLE_DESPAWN,
+                payload={"bubble_id": bid, "reason": "expired"},
+            ))
         await self._broadcast(ServerMessage(
             type=MsgType.BUBBLE_SPAWN,
-            payload={
-                "spawn_index": spawn_idx,
-                "bubbles": [b.to_public()],
-            },
+            payload={"spawn_index": spawn_idx, "bubbles": [b.to_public()]},
         ))
         return bubble_id
 
@@ -167,16 +154,28 @@ class BubbleManager:
                 self._bubbles.pop(bubble_id, None)
                 return ClickOutcome.rejected(ClickOutcomeKind.EXPIRED, bubble_id)
 
-            if b.age_sec() < config.BUBBLE_REACTION_TIME_MIN_SEC:
+            server_age = b.age_sec()
+            reaction = server_age
+            if not config.BUBBLE_USE_SERVER_TIME and client_ts is not None:
+                try:
+                    cts = float(client_ts)
+                except (TypeError, ValueError):
+                    cts = None
+                if cts is not None and 0.0 <= cts <= (
+                    config.BUBBLE_MAX_CLIENT_LATENCY_SEC + config.BUBBLE_LIFETIME_SEC
+                ):
+                    if cts <= server_age + config.BUBBLE_MAX_CLIENT_LATENCY_SEC:
+                        reaction = cts
+
+            if reaction < config.BUBBLE_REACTION_TIME_MIN_SEC:
                 return ClickOutcome.rejected(ClickOutcomeKind.TOO_FAST, bubble_id)
 
             b.resolved = True
             b.popped_by = player_id
 
-            # client is source of truth for QTE score, clamp to server cap
             cap = (config.BUBBLE_GOLD_REWARD_COINS * 10
-                   if b.kind == "gold"
-                   else config.BUBBLE_REWARD_COINS * 10)
+                if b.kind == "gold"
+                else config.BUBBLE_REWARD_COINS * 10)
             coins = max(1, min(int(client_coins), cap))
 
             self._bubbles.pop(bubble_id, None)

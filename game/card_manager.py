@@ -21,17 +21,16 @@ class CardManager:
 
     # ---------- training ----------
 
-    def train(
-        self,
-        inventory: CardInventory,
-        card_id: str,
-        client_level: int | None = None,
-    ) -> Card:
-        if client_level is not None and (
-            client_level < 1 or client_level > config.TRAINING_MAX_CARD_LEVEL
-        ):
-            raise CardError("CARD_LEVEL_INVALID")
-
+    def train(self, inventory, card_id, client_level=None):
+        if not isinstance(card_id, str) or not card_id:
+            raise CardError("CARD_NOT_FOUND")
+        if client_level is not None:
+            try:
+                lvl = int(client_level)
+            except (TypeError, ValueError):
+                raise CardError("CARD_LEVEL_INVALID")
+            if lvl < 1 or lvl > config.TRAINING_MAX_CARD_LEVEL:
+                raise CardError("CARD_LEVEL_INVALID")
         card = inventory.get(card_id)
         if card is None:
             card = inventory.add(card_id, level=1)
@@ -45,6 +44,10 @@ class CardManager:
         card_id: str,
         reported_level: int,
     ) -> tuple[Card, bool]:
+        try:
+            reported_level = int(reported_level)
+        except (TypeError, ValueError):
+            raise CardError("CARD_LEVEL_INVALID")
         if reported_level < 1 or reported_level > config.TRAINING_MAX_CARD_LEVEL:
             raise CardError("CARD_LEVEL_INVALID")
 
@@ -68,8 +71,13 @@ class CardManager:
     def validate_use(self, inventory, card_id, client_level):
         card = inventory.get(card_id)
         if card is None:
-            level = max(1, min(int(client_level), config.TRAINING_MAX_CARD_LEVEL))
-            card = inventory.add(card_id, level=level)
-        if card.level != client_level:
-            card.level = int(client_level)
+            raise CardError("CARD_NOT_OWNED")
+        try:
+            level = int(client_level)
+        except (TypeError, ValueError):
+            raise CardError("CARD_LEVEL_INVALID")
+        if level < 1 or level > config.TRAINING_MAX_CARD_LEVEL:
+            raise CardError("CARD_LEVEL_INVALID")
+        if card.level != level:
+            raise CardError("CARD_LEVEL_MISMATCH")
         return card

@@ -98,25 +98,28 @@ class MatchHandlers:
             log.info("room=%s player=%s card=%s -> level %d",
                      m.room_id, session.player_id, card.card_id, card.level)
 
-    async def handle_use_card(
-        self, session: Session, msg: ClientMessage
-    ) -> None:
+    async def handle_use_card(self, session, msg):
         m = await self._require_match(session)
         if m is None:
             return
-
         card_id = msg.payload.get("card_id", "")
+        if not isinstance(card_id, str) or not card_id:
+            return await self._send(session, ServerMessage(
+                type=MsgType.CARD_ERROR, payload={"error": "CARD_NOT_FOUND"},
+            ))
         level = msg.payload.get("card_level", 0)
         target = msg.payload.get("target_player_id", "")
-
+        if target and target not in m.room.players:
+            return await self._send(session, ServerMessage(
+                type=MsgType.CARD_ERROR, payload={"error": "TARGET_NOT_FOUND"},
+            ))
         try:
             card = m.card_manager.validate_use(
                 m.inventory(session.player_id), card_id, level,
             )
         except CardError as e:
             return await self._send(session, ServerMessage(
-                type=MsgType.CARD_ERROR,
-                payload={"error": e.code},
+                type=MsgType.CARD_ERROR, payload={"error": e.code},
             ))
 
         await self._broadcast(m.room_id, ServerMessage(
@@ -132,20 +135,37 @@ class MatchHandlers:
     # ---------- bubble handlers ----------
 
     async def handle_bubble_click(
-        self, session: Session, msg: ClientMessage
-    ) -> None:
+            self, session: Session, msg: ClientMessage
+        ) -> None:
         m = await self._require_match(session)
         if m is None:
             return
 
         bubble_id = msg.payload.get("bubble_id", "")
-        client_ts = msg.payload.get("client_ts")
+        if not isinstance(bubble_id, str) or not bubble_id:
+            return await self._send(session, ServerMessage(
+                type=MsgType.BUBBLE_ERROR,
+                payload={"bubble_id": bubble_id if isinstance(bubble_id, str) else "", "error": "UNKNOWN"},
+            ))
+
+        client_ts_raw = msg.payload.get("client_ts")
+        client_ts: float | None = None
+        if client_ts_raw is not None:
+            try:
+                client_ts = float(client_ts_raw)
+            except (TypeError, ValueError):
+                client_ts = None
+
+        try:
+            client_coins = int(msg.payload.get("coins", 0))
+        except (TypeError, ValueError):
+            client_coins = 0
 
         outcome = await m.bubbles.resolve_click(
             player_id=session.player_id,
             bubble_id=bubble_id,
-            client_ts=float(client_ts) if client_ts is not None else None,
-            client_coins=int(msg.payload.get("coins", 0)),
+            client_ts=client_ts,
+            client_coins=client_coins,
         )
 
         if outcome.kind is ClickOutcomeKind.WON:

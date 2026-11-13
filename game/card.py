@@ -21,6 +21,9 @@ class CardInventory:
         return self.cards.get(card_id)
 
     def add(self, card_id: str, level: int = 1) -> Card:
+        card = self.cards.get(card_id)
+        if card is not None:
+            return card
         card = Card(card_id=card_id, level=level)
         self.cards[card_id] = card
         return card
