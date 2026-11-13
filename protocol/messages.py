@@ -48,8 +48,6 @@ class MsgType(str, Enum):
     EFFECT_CONFIRMED = "effect_confirmed"
 
     MATCH_STARTED = "match_started"
-    MATCH_ENDED   = "match_ended"
-
 
 @dataclass
 class ClientMessage:
