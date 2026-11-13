@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import random
 import uuid
@@ -15,7 +14,75 @@ log = logging.getLogger("unf.game.bubble")
 
 BroadcastFn = Callable[[ServerMessage], Awaitable[None]]
 CoinAwardFn = Callable[[str, int], Awaitable[int]]
+RewardMultiplierFn = Callable[[], float]
 
+
+# ---------- group generation ----------
+
+class _GroupSpec:
+
+    __slots__ = ("group_id", "bubbles")
+
+    def __init__(self, group_id: int, bubbles: list[Bubble]):
+        self.group_id = group_id
+        self.bubbles = bubbles
+
+
+def _pick_bubble_kind(rng: random.Random) -> str:
+    return "gold" if rng.random() < config.BUBBLE_GOLD_CHANCE else "normal"
+
+
+def _generate_bubble(
+    rng: random.Random,
+    group_id: int,
+    spawn_delay: float,
+) -> Bubble:
+    kind = _pick_bubble_kind(rng)
+    lifetime = rng.uniform(
+        config.BUBBLE_LIFETIME_MIN_SEC,
+        config.BUBBLE_LIFETIME_MAX_SEC,
+    )
+    size = rng.uniform(config.BUBBLE_SIZE_MIN, config.BUBBLE_SIZE_MAX)
+    base_score = (
+        config.BUBBLE_GOLD_REWARD_COINS
+        if kind == "gold"
+        else config.BUBBLE_REWARD_COINS
+    )
+    if config.BUBBLE_SCORE_JITTER > 0:
+        base_score += rng.randint(
+            -config.BUBBLE_SCORE_JITTER, config.BUBBLE_SCORE_JITTER
+        )
+        base_score = max(1, base_score)
+
+    return Bubble(
+        bubble_id=uuid.uuid4().hex,
+        spawned_at_ms=0,  # set on actual spawn
+        kind=kind,
+        seed=rng.getrandbits(32),
+        group_id=group_id,
+        spawn_delay=spawn_delay,
+        lifetime=lifetime,
+        size=size,
+        score=base_score,
+    )
+
+
+def _generate_sequential_group(rng: random.Random, group_id: int) -> _GroupSpec:
+    count = rng.randint(
+        config.SEQUENTIAL_GROUP_MIN_BUBBLES,
+        config.SEQUENTIAL_GROUP_MAX_BUBBLES,
+    )
+    bubbles: list[Bubble] = []
+    for _ in range(count):
+        delay = rng.uniform(
+            config.SEQUENTIAL_GROUP_MIN_DELAY,
+            config.SEQUENTIAL_GROUP_MAX_DELAY,
+        )
+        bubbles.append(_generate_bubble(rng, group_id, delay))
+    return _GroupSpec(group_id, bubbles)
+
+
+# ---------- manager ----------
 
 class BubbleManager:
     def __init__(
@@ -24,17 +91,20 @@ class BubbleManager:
         broadcast: BroadcastFn,
         coin_award: CoinAwardFn,
         reward_multiplier: RewardMultiplierFn | None = None,
+        rng_seed: int | None = None,
     ):
         self.room_id = room_id
         self._broadcast = broadcast
         self._coin_award = coin_award
         self._reward_multiplier = reward_multiplier or (lambda: 1.0)
 
+        self._rng = random.Random(rng_seed) if rng_seed is not None else random.Random()
+        self._next_group_id = 1
+
         self._bubbles: dict[str, Bubble] = {}
         self._lock = asyncio.Lock()
         self._spawn_task: asyncio.Task | None = None
         self._running = False
-        self._spawn_index = 0
 
     # ---------- lifecycle ----------
 
@@ -57,18 +127,15 @@ class BubbleManager:
         self._bubbles.clear()
         log.info("bubble manager stopped room=%s", self.room_id)
 
-    # ---------- spawn loop (group-based, like singleplayer) ----------
+    # ---------- spawn loop ----------
 
     async def _spawn_loop(self) -> None:
         try:
             while self._running:
-                await self._spawn_group()
+                await self._run_group()
                 if not self._running:
                     break
-                await self._wait_group_done()
-                if not self._running:
-                    break
-                pause = random.uniform(
+                pause = self._rng.uniform(
                     config.BUBBLE_GROUP_PAUSE_MIN,
                     config.BUBBLE_GROUP_PAUSE_MAX,
                 )
@@ -78,83 +145,62 @@ class BubbleManager:
         except Exception:
             log.exception("bubble spawn loop crashed room=%s", self.room_id)
 
-    async def _spawn_group(self) -> None:
-        count = random.randint(
-            config.BUBBLE_GROUP_MIN,
-            config.BUBBLE_GROUP_MAX,
-        )
-        log.debug("room=%s spawning group of %d bubbles", self.room_id, count)
+    async def _run_group(self) -> None:
+        group_id = self._next_group_id
+        self._next_group_id += 1
 
-        for _ in range(count):
-            if not self._running:
-                return
-            delay = random.uniform(
-                config.BUBBLE_GROUP_DELAY_MIN,
-                config.BUBBLE_GROUP_DELAY_MAX,
-            )
-            await asyncio.sleep(delay)
-            if not self._running:
-                return
-            await self._spawn_one()
+        spec = _generate_sequential_group(self._rng, group_id)
 
-    async def _spawn_one(self) -> str | None:
-        async with self._lock:
-            if not self._running:
-                return None
-
-            now = now_ms()
-
-            # cleanup expired
-            for b in list(self._bubbles.values()):
-                if not b.resolved and b.is_expired(now):
-                    self._bubbles.pop(b.bubble_id, None)
-                    await self._broadcast(ServerMessage(
-                        type=MsgType.BUBBLE_DESPAWN,
-                        payload={"bubble_id": b.bubble_id, "reason": "expired"},
-                    ))
-
-            # safety cap
-            active = sum(1 for b in self._bubbles.values() if not b.resolved)
-            if active >= config.BUBBLE_MAX_ACTIVE:
-                return None
-
-            bubble_id = uuid.uuid4().hex
-            kind = "gold" if random.random() < config.BUBBLE_GOLD_CHANCE else "normal"
-            seed_bytes = hashlib.sha256(bubble_id.encode("ascii")).digest()
-            seed = int.from_bytes(seed_bytes[:4], "big")
-
-            b = Bubble(
-                bubble_id=bubble_id,
-                spawned_at_ms=now_ms(),
-                kind=kind,
-                seed=seed,
-            )
-            self._bubbles[bubble_id] = b
-            self._spawn_index += 1
-            spawn_idx = self._spawn_index
-
-        # broadcast outside the lock (await is not allowed inside `async with` in some cases)
         await self._broadcast(ServerMessage(
-            type=MsgType.BUBBLE_SPAWN,
+            type=MsgType.BUBBLE_GROUP,
             payload={
-                "spawn_index": spawn_idx,
-                "bubbles": [b.to_public()],
+                "group_id": spec.group_id,
+                "type": "sequential",
+                "bubble_count": len(spec.bubbles),
             },
         ))
-        return bubble_id
 
-    async def _wait_group_done(self) -> None:
-        """Block until all currently alive bubbles are gone (resolved or expired)."""
+        for bubble in spec.bubbles:
+            if not self._running:
+                return
+            await asyncio.sleep(bubble.spawn_delay)
+            if not self._running:
+                return
+            await self._spawn_bubble(bubble)
+
+        await self._wait_group_done(group_id)
+
+    async def _spawn_bubble(self, b: Bubble) -> None:
+        b.spawned_at_ms = now_ms()
+        async with self._lock:
+            self._bubbles[b.bubble_id] = b
+
+        await self._broadcast(ServerMessage(
+            type=MsgType.BUBBLE_SPAWN,
+            payload={"bubbles": [b.to_public()]},
+        ))
+
+    async def _wait_group_done(self, group_id: int) -> None:
         while self._running:
             async with self._lock:
                 now = now_ms()
+                for bid in list(self._bubbles):
+                    b = self._bubbles[bid]
+                    if b.group_id != group_id:
+                        continue
+                    if not b.resolved and b.is_expired(now):
+                        self._bubbles.pop(bid, None)
+                        await self._broadcast(ServerMessage(
+                            type=MsgType.BUBBLE_DESPAWN,
+                            payload={"bubble_id": bid, "reason": "expired"},
+                        ))
                 alive = [
                     b for b in self._bubbles.values()
-                    if not b.resolved and not b.is_expired(now)
+                    if b.group_id == group_id and not b.resolved
                 ]
             if not alive:
                 return
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.1)
 
     # ---------- click resolution ----------
 
@@ -179,19 +225,19 @@ class BubbleManager:
             b.resolved = True
             b.popped_by = player_id
 
-            cap = (
-                config.BUBBLE_GOLD_REWARD_COINS * 10
-                if b.kind == "gold"
-                else config.BUBBLE_REWARD_COINS * 10
+            base_cap = b.score * 10
+            base_coins = (
+                max(1, min(int(client_coins), base_cap))
+                if client_coins
+                else b.score
             )
-            base_coins = max(1, min(int(client_coins), cap))
-
 
             multiplier = self._reward_multiplier()
             coins = max(1, int(round(base_coins * multiplier)))
 
             self._bubbles.pop(bubble_id, None)
             kind = b.kind
+            base_score = b.score
 
         new_balance = await self._coin_award(player_id, coins)
         await self._broadcast(ServerMessage(
@@ -200,7 +246,9 @@ class BubbleManager:
                 "bubble_id": bubble_id,
                 "winner_player_id": player_id,
                 "coins_awarded": coins,
+                "new_balance": new_balance,
                 "multiplier": round(multiplier, 3),
+                "base_score": base_score,
                 "kind": kind,
             },
         ))

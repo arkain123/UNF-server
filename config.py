@@ -69,32 +69,52 @@ assert REWARD_PROGRESSION_INTERVAL_SEC > 0, "REWARD_PROGRESSION_INTERVAL_SEC mus
 assert REWARD_PROGRESSION_INCREMENT >= 0, "REWARD_PROGRESSION_INCREMENT must be >= 0"
 assert REWARD_PROGRESSION_MAX_MULTIPLIER >= 1, "REWARD_PROGRESSION_MAX_MULTIPLIER must be >= 1"
 
-# Spawning
-BUBBLE_SPAWN_INTERVAL_SEC = 1.5   # how often a new bubble appears
-BUBBLES_PER_SPAWN = 1             # sum of bubbles appearing per tick
-BUBBLE_MAX_ACTIVE = 9999999             # cap on concurrent bubbles
-BUBBLE_LIFETIME_SEC = 5.0         # bubble despawns if not popped
-BUBBLE_ROUND_DURATION_SEC = 0    # round length (0 = endless)
-BUBBLE_GOLD_CHANCE = 0.10
-BUBBLE_GROUP_MIN = 3
-BUBBLE_GROUP_MAX = 8
-BUBBLE_GROUP_DELAY_MIN = 0.3
-BUBBLE_GROUP_DELAY_MAX = 2.0
-BUBBLE_GROUP_PAUSE_MIN = 2.0    # pause between groups (after last bubble dies)
+# ---------- BUBBLES: SPAWNING ----------
+
+# Sequential groups only (QteData.gd: SequentialGroup).
+# Each group spawns N bubbles, one after another, with per-bubble spawn
+# delays, then a pause before the next group starts.
+
+SEQUENTIAL_GROUP_MIN_BUBBLES = 3
+SEQUENTIAL_GROUP_MAX_BUBBLES = 8
+SEQUENTIAL_GROUP_MIN_DELAY = 0.30   # seconds between consecutive bubble spawns
+SEQUENTIAL_GROUP_MAX_DELAY = 2.00
+
+# Pause between groups (after last bubble in group is done).
+BUBBLE_GROUP_PAUSE_MIN = 2.0
 BUBBLE_GROUP_PAUSE_MAX = 4.0
 
-# Scoring / latency validation
-BUBBLE_MAX_CLIENT_LATENCY_SEC = 0.75  # reject client-reported reaction beyond this
-BUBBLE_USE_SERVER_TIME = True         # True: judge by server arrival time; False: trust client ts
-BUBBLE_REACTION_TIME_MIN_SEC = 0.05   # anti-bot: reject sub-human reaction
-BUBBLE_TIE_BREAK = "arrival"          # "arrival" | "player_id"
+# Bubble types inside a group (QteGroup.bubble_types / bubble_chances).
+BUBBLE_GOLD_CHANCE = 0.10
+# (normal = 1 - BUBBLE_GOLD_CHANCE)
+
+# Per-bubble lifetime window, in seconds (QteBubble.get_min/max_lifetime).
+BUBBLE_LIFETIME_MIN_SEC = 3.0
+BUBBLE_LIFETIME_MAX_SEC = 5.0
+
+# Per-bubble size window (QteBubble.get_min/max_size).
+BUBBLE_SIZE_MIN = 40.0
+BUBBLE_SIZE_MAX = 80.0
+
+# Reward per bubble. Score is derived server-side (not trusted from client).
+BUBBLE_REWARD_COINS = 20
+BUBBLE_GOLD_REWARD_COINS = 100
+BUBBLE_SCORE_JITTER = 0            # 0 = use exact BUBBLE_*_REWARD_COINS
+
+# Reaction-time validation
+BUBBLE_REACTION_TIME_MIN_SEC = 0.05
+BUBBLE_MAX_CLIENT_LATENCY_SEC = 0.75
+BUBBLE_USE_SERVER_TIME = True
+BUBBLE_TIE_BREAK = "arrival"
 BUBBLE_SEND_SEED = True
 
-assert BUBBLE_SPAWN_INTERVAL_SEC > 0, "BUBBLE_SPAWN_INTERVAL_SEC must be > 0"
-assert BUBBLES_PER_SPAWN >= 1, "BUBBLES_PER_SPAWN must be >= 1"
-assert BUBBLE_REWARD_COINS >= 0, "BUBBLE_REWARD_COINS must be >= 0"
-assert BUBBLE_MAX_ACTIVE >= BUBBLES_PER_SPAWN, "BUBBLE_MAX_ACTIVE must fit one batch"
-assert 0.0 <= BUBBLE_GOLD_CHANCE <= 1.0, "BUBBLE_GOLD_CHANCE must be in [0, 1]"
+# Sanity asserts
+assert SEQUENTIAL_GROUP_MIN_BUBBLES > 0
+assert SEQUENTIAL_GROUP_MAX_BUBBLES >= SEQUENTIAL_GROUP_MIN_BUBBLES
+assert SEQUENTIAL_GROUP_MIN_DELAY >= 0
+assert 0.0 <= BUBBLE_GOLD_CHANCE <= 1.0
+assert 0.0 < BUBBLE_LIFETIME_MIN_SEC <= BUBBLE_LIFETIME_MAX_SEC
+assert 0.0 < BUBBLE_SIZE_MIN <= BUBBLE_SIZE_MAXassert 0.0 <= BUBBLE_GOLD_CHANCE <= 1.0, "BUBBLE_GOLD_CHANCE must be in [0, 1]"
 
 # ---------- PROTOCOL ----------
 
