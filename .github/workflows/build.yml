@@ -54,7 +54,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: |
-            dist/server-windows.exe
-            dist/server-Darwin
-            dist/server-Linux
+          path: dist/
