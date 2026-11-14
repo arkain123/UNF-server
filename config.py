@@ -6,7 +6,6 @@ PORT = 8000
 # WebSocket path accepted by the server (everything else -> 404).
 WS_PATH = "/ws"
 
-# Direct TLS termination in Python. Normally NOT needed when using Cloudflare
 # Tunnel: Cloudflare terminates TLS and forwards plain ws:// to localhost.
 USE_TLS = False
 TLS_CERT = "certs/cert.pem"
