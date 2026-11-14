@@ -1,3 +1,17 @@
+import sys
+import os
+
+def _setup_config_path():
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    elif os.environ.get("NUITKA_ONEFILE_DIRECTORY"):
+        base_dir = os.environ["NUITKA_ONEFILE_DIRECTORY"]
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, base_dir)
+
+_setup_config_path()
+
 import asyncio
 import argparse
 import logging
