@@ -71,7 +71,6 @@ assert REWARD_PROGRESSION_MAX_MULTIPLIER >= 1, "REWARD_PROGRESSION_MAX_MULTIPLIE
 
 # ---------- BUBBLES: SPAWNING ----------
 
-# Sequential groups only (QteData.gd: SequentialGroup).
 # Each group spawns N bubbles, one after another, with per-bubble spawn
 # delays, then a pause before the next group starts.
 
